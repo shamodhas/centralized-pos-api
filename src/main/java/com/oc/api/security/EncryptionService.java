@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.Base64;
 
 @Service
@@ -16,6 +17,8 @@ public class EncryptionService {
     private String secretKey;
 
     private SecretKeySpec secretKeySpec;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     @PostConstruct
     public void init() {
@@ -38,5 +41,11 @@ public class EncryptionService {
         byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
         byte[] decryptedBytes = cipher.doFinal(decodedBytes);
         return new String(decryptedBytes, StandardCharsets.UTF_8);
+    }
+
+    public String generateSecurePassword() {
+        byte[] randomBytes = new byte[24];
+        SECURE_RANDOM.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 }

@@ -1,9 +1,21 @@
-server:
-  port: 8080
-
 app:
   security:
     encryption-secret: "58e8e118cf51fdd330a9def358d8dd76e70da5ff92f2a84b4c1322adda0718a7"
+  tenant:
+    db:
+      host: localhost
+      port: 5432
+      driver-class-name: org.postgresql.Driver
+      pool:
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+
+jwt:
+  secret: 756a9ccf46d96ddf0b45084e601f742ed8c4ee1b969b51e00766d1a22942adde
+  refresh-secret: f2bcf626812bef101937a2a688b8270363c1eb17f87e1b0aa1259cfac19fbb24
+  expiration: 86400000
+  refresh-expiration: 604800000
 
 spring:
   main:
@@ -26,3 +38,6 @@ spring:
     show-sql: true
     hibernate:
       ddl-auto: none
+  flyway:
+    enabled: true
+    locations: classpath:db/master

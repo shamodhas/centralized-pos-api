@@ -1,7 +1,7 @@
 package com.oc.api.controller;
 
-import com.oc.api.entity.Product;
-import com.oc.api.repository.ProductRepository;
+import com.oc.api.model.tenant.Product;
+import com.oc.api.repository.tenant.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

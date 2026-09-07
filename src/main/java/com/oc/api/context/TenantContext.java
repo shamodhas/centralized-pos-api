@@ -3,7 +3,8 @@ package com.oc.api.context;
 public final class TenantContext {
     private static final ThreadLocal<String> CURRENT_TENANT = new ThreadLocal<>();
 
-    private TenantContext() {}
+    private TenantContext() {
+    }
 
     public static String getCurrentTenant() {
         return CURRENT_TENANT.get();

@@ -1,10 +1,13 @@
 package com.oc.api.context;
 
-import com.oc.api.manager.TenantDataSourceManager;
+import com.oc.api.constant.AppConstants;
+import com.oc.api.service.TenantDataSourceManager;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
+
 import javax.sql.DataSource;
 import java.lang.reflect.Field;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DynamicRoutingDataSource extends AbstractRoutingDataSource {
 
@@ -17,18 +20,19 @@ public class DynamicRoutingDataSource extends AbstractRoutingDataSource {
     @Override
     protected Object determineCurrentLookupKey() {
         String tenantId = TenantContext.getCurrentTenant();
-        return (tenantId == null || tenantId.isBlank()) ? "master" : tenantId;
+        return (tenantId == null || tenantId.isBlank()) ? AppConstants.MASTER_TENANT_ID : tenantId;
     }
 
     @Override
     protected DataSource determineTargetDataSource() {
         Object lookupKey = determineCurrentLookupKey();
-        if ("master".equals(lookupKey)) {
+        if (AppConstants.MASTER_TENANT_ID.equals(lookupKey)) {
             return super.determineTargetDataSource();
         }
         return tenantDataSourceManager.getDataSource((String) lookupKey);
     }
 
+    @SuppressWarnings("unchecked")
     public synchronized void updateTargetDataSources(Map<Object, Object> targetDataSources) {
         setTargetDataSources(targetDataSources);
         super.afterPropertiesSet();
@@ -36,8 +40,12 @@ public class DynamicRoutingDataSource extends AbstractRoutingDataSource {
         try {
             Field resolvedDataSourcesField = AbstractRoutingDataSource.class.getDeclaredField("resolvedDataSources");
             resolvedDataSourcesField.setAccessible(true);
-            @SuppressWarnings("unchecked")
+
             Map<Object, DataSource> resolvedDataSources = (Map<Object, DataSource>) resolvedDataSourcesField.get(this);
+            if (resolvedDataSources == null) {
+                resolvedDataSources = new ConcurrentHashMap<>();
+                resolvedDataSourcesField.set(this, resolvedDataSources);
+            }
 
             for (Map.Entry<Object, Object> entry : targetDataSources.entrySet()) {
                 if (entry.getValue() instanceof DataSource) {

@@ -1,6 +1,6 @@
-package com.oc.api.repository;
+package com.oc.api.repository.tenant;
 
-import com.oc.api.entity.Product;
+import com.oc.api.model.tenant.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

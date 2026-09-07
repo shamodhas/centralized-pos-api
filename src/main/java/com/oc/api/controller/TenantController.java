@@ -1,10 +1,11 @@
 package com.oc.api.controller;
 
 import com.oc.api.dto.TenantRegistrationRequest;
-import com.oc.api.manager.TenantDataSourceManager;
+import com.oc.api.service.TenantDataSourceManager;
 import com.oc.api.service.TenantManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -20,6 +21,7 @@ public class TenantController {
     private TenantDataSourceManager tenantDataSourceManager;
 
     @PostMapping("/register")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> registerTenant(@RequestBody TenantRegistrationRequest request) {
         String tenantId = tenantManagementService.registerTenant(request.getTenantName());
 
@@ -35,6 +37,7 @@ public class TenantController {
     }
 
     @DeleteMapping("/{tenantId}/cache")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> evictTenantCache(@PathVariable String tenantId) {
         tenantDataSourceManager.evictDataSource(tenantId);
         return ResponseEntity.ok(Map.of(

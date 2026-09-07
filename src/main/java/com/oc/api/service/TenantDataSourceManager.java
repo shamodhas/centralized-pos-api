@@ -1,12 +1,16 @@
-package com.oc.api.manager;
+package com.oc.api.service;
 
+import com.oc.api.constant.AppConstants;
 import com.oc.api.context.DynamicRoutingDataSource;
+import com.oc.api.model.master.TenantConfig;
+import com.oc.api.repository.master.TenantConfigRepository;
 import com.oc.api.security.EncryptionService;
-import com.oc.api.service.TenantRegistryService;
 import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
@@ -16,34 +20,32 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 @Component
+@RequiredArgsConstructor
 public class TenantDataSourceManager {
 
     private final Map<String, DataSource> tenantDataSources = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ReentrantLock> tenantLocks = new ConcurrentHashMap<>();
 
-    @Autowired
-    private EncryptionService encryptionService;
+    private final EncryptionService encryptionService;
+    private final TenantConfigRepository tenantConfigRepository;
 
-    @Autowired
-    private TenantRegistryService tenantRegistryService;
+    @Qualifier(AppConstants.MASTER_DATASOURCE)
+    private final DataSource masterDataSource;
 
-    @Autowired
-    @Qualifier("masterDataSourceBean")
-    private DataSource masterDataSource;
-
+    @Setter
     private DynamicRoutingDataSource routingDataSource;
 
-    public void setRoutingDataSource(DynamicRoutingDataSource routingDataSource) {
-        this.routingDataSource = routingDataSource;
-    }
-
     public DataSource getDataSource(String tenantId) {
-        if (tenantDataSources.containsKey(tenantId)) return tenantDataSources.get(tenantId);
+        if (tenantDataSources.containsKey(tenantId)) {
+            return tenantDataSources.get(tenantId);
+        }
 
         ReentrantLock tenantLock = tenantLocks.computeIfAbsent(tenantId, k -> new ReentrantLock());
         tenantLock.lock();
         try {
-            if (tenantDataSources.containsKey(tenantId)) return tenantDataSources.get(tenantId);
+            if (tenantDataSources.containsKey(tenantId)) {
+                return tenantDataSources.get(tenantId);
+            }
 
             DataSource dataSource = createTenantDataSource(tenantId);
             tenantDataSources.put(tenantId, dataSource);
@@ -51,38 +53,43 @@ public class TenantDataSourceManager {
             return dataSource;
         } finally {
             tenantLock.unlock();
-            tenantLocks.remove(tenantId);
         }
+    }
+
+    @Cacheable(value = "tenantConfigs", key = "#tenantId")
+    public TenantConfig getTenantConfig(String tenantId) {
+        return tenantConfigRepository.findById(tenantId)
+                .orElseThrow(() -> new IllegalStateException("Tenant configuration not found for ID: " + tenantId));
     }
 
     private DataSource createTenantDataSource(String tenantId) {
         try {
-            JdbcTemplate jdbcTemplate = new JdbcTemplate(masterDataSource);
-            String sql = "SELECT db_url, db_username, db_password, db_driver FROM tenant_config WHERE tenant_id = ?";
-            Map<String, Object> config = jdbcTemplate.queryForMap(sql, tenantId);
+            TenantConfig config = getTenantConfig(tenantId);
+
+            String decryptedPassword = encryptionService.decrypt(config.getDbPassword());
 
             HikariDataSource ds = new HikariDataSource();
-            ds.setJdbcUrl((String) config.get("db_url"));
-            ds.setUsername((String) config.get("db_username"));
-            ds.setPassword(encryptionService.decrypt((String) config.get("db_password")));
-            ds.setDriverClassName((String) config.get("db_driver"));
+            ds.setJdbcUrl(config.getDbUrl());
+            ds.setUsername(config.getDbUsername());
+            ds.setPassword(decryptedPassword);
+            ds.setDriverClassName(config.getDbDriver());
             ds.setMaximumPoolSize(10);
 
-            tenantRegistryService.cacheTenantRoute(tenantId, ds.getJdbcUrl());
             return ds;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed configuring datasource for tenant: " + tenantId, e);
+            throw new IllegalStateException("Failed configuring datasource for tenant: " + tenantId + " -> Cause: " + e.getMessage(), e);
         }
     }
 
     private synchronized void updateRoutingDataSourceTargets() {
         if (routingDataSource != null) {
             Map<Object, Object> targetDataSources = new HashMap<>(tenantDataSources);
-            targetDataSources.put("master", masterDataSource);
+            targetDataSources.put(AppConstants.MASTER_TENANT_ID, masterDataSource);
             routingDataSource.updateTargetDataSources(targetDataSources);
         }
     }
 
+    @CacheEvict(value = "tenantConfigs", key = "#tenantId")
     public void evictDataSource(String tenantId) {
         ReentrantLock tenantLock = tenantLocks.computeIfAbsent(tenantId, k -> new ReentrantLock());
         tenantLock.lock();
@@ -91,7 +98,6 @@ public class TenantDataSourceManager {
             if (ds instanceof HikariDataSource) {
                 ((HikariDataSource) ds).close();
             }
-            tenantRegistryService.evictTenantRoute(tenantId);
             updateRoutingDataSourceTargets();
         } finally {
             tenantLock.unlock();
