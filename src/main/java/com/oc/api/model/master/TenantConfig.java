@@ -1,12 +1,12 @@
 package com.oc.api.model.master;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tenant_config")
@@ -16,21 +16,22 @@ public class TenantConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
     @Column(name = "tenant_id")
     private String tenantId;
-
-    @Column(name = "db_url", nullable = false)
-    private String dbUrl;
 
     @Column(name = "tenant_name", unique = true, nullable = false)
     private String tenantName;
 
-    @Column(name = "db_username", nullable = false)
-    private String dbUsername;
+    @Column(name = "schema_name", unique = true, nullable = false)
+    private String schemaName;
 
-    @Column(name = "db_password", nullable = false)
-    private String dbPassword;
+    @Column(name = "status")
+    private String status = "ACTIVE";
 
-    @Column(name = "db_driver", nullable = false)
-    private String dbDriver;
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
 }

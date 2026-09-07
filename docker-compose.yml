@@ -6,7 +6,7 @@ services:
     container_name: pos-master-db
     environment:
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: master_db
+      POSTGRES_DB: cpos_main_db
     ports:
       - "5432:5432"
     restart: always
@@ -17,3 +17,5 @@ services:
     ports:
       - "6379:6379"
     restart: always
+
+#    docker exec -it pos-master-db psql -U postgres -d cpos_main_db

@@ -1,17 +1,18 @@
 package com.oc.api.service;
 
-import com.oc.api.config.TenantProperties;
 import com.oc.api.constant.AppConstants;
-import com.oc.api.security.EncryptionService;
+import com.oc.api.model.master.TenantConfig;
+import com.oc.api.repository.master.TenantConfigRepository;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,8 +23,7 @@ public class TenantManagementService {
     @Qualifier(AppConstants.MASTER_DATASOURCE)
     private final DataSource masterDataSource;
 
-    private final EncryptionService encryptionService;
-    private final TenantProperties tenantProperties;
+    private final TenantConfigRepository tenantConfigRepository;
 
     public String registerTenant(String tenantName) {
         if (tenantName == null || tenantName.isBlank()) {
@@ -31,38 +31,41 @@ public class TenantManagementService {
         }
 
         String tenantId = "t_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-        String dbName = "tenant_" + tenantId.toLowerCase();
-        String dbUsername = tenantId + "_user";
-        String rawPassword = encryptionService.generateSecurePassword();
-        String tenantDbUrl = String.format("jdbc:postgresql://%s:%d/%s", tenantProperties.getHost(), tenantProperties.getPort(), dbName);
+        String schemaName = "tenant_" + tenantId.toLowerCase();
 
         JdbcTemplate masterJdbcTemplate = new JdbcTemplate(masterDataSource);
 
         try {
-            provisionDatabaseAndRole(masterJdbcTemplate, dbName, dbUsername, rawPassword);
-            initializeTenantSchema(tenantDbUrl, dbUsername, rawPassword);
-            persistTenantConfig(masterJdbcTemplate, tenantId, tenantName, tenantDbUrl, dbUsername, rawPassword);
+            provisionSchemaAndTables(masterJdbcTemplate, schemaName);
+            persistTenantConfig(masterJdbcTemplate, tenantId, tenantName, schemaName);
 
             return tenantId;
         } catch (Exception e) {
-            rollbackTenantProvisioning(masterJdbcTemplate, dbName, dbUsername);
-            throw new RuntimeException("Failed to register tenant database: " + e.getMessage(), e);
+            rollbackTenantProvisioning(masterJdbcTemplate, schemaName);
+            throw new RuntimeException("Failed to register tenant schema: " + e.getMessage(), e);
         }
     }
 
-    private void provisionDatabaseAndRole(JdbcTemplate jdbcTemplate, String dbName, String dbUsername, String rawPassword) {
-        if (!dbName.matches("^[a-zA-Z0-9_]+$") || !dbUsername.matches("^[a-zA-Z0-9_]+$")) {
-            throw new IllegalArgumentException("Invalid database or username format detected.");
-        }
-
-        jdbcTemplate.execute(String.format("CREATE DATABASE \"%s\"", dbName));
-        jdbcTemplate.execute(String.format("CREATE ROLE \"%s\" WITH LOGIN PASSWORD '%s'", dbUsername, rawPassword.replace("'", "''")));
-        jdbcTemplate.execute(String.format("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\"", dbName, dbUsername));
-        jdbcTemplate.execute(String.format("ALTER DATABASE \"%s\" OWNER TO \"%s\"", dbName, dbUsername));
+    public List<TenantConfig> getAllTenants() {
+        return tenantConfigRepository.findAll();
     }
 
-    private void initializeTenantSchema(String tenantDbUrl, String dbUsername, String rawPassword) {
-        LocalContainerEntityManagerFactoryBean emfBuilder = buildEntityManagerFactory(tenantDbUrl, dbUsername, rawPassword);
+    public void updateTenantStatus(String tenantId, String status) {
+        TenantConfig config = tenantConfigRepository.findByTenantId(tenantId)
+                .orElseThrow(() -> new RuntimeException("Tenant not found: " + tenantId));
+        config.setStatus(status.toUpperCase());
+        tenantConfigRepository.save(config);
+    }
+
+    private void provisionSchemaAndTables(JdbcTemplate jdbcTemplate, String schemaName) {
+        if (!schemaName.matches("^[a-zA-Z0-9_]+$")) {
+            throw new IllegalArgumentException("Invalid schema format detected.");
+        }
+
+        jdbcTemplate.execute(String.format("CREATE SCHEMA \"%s\"", schemaName));
+
+        LocalContainerEntityManagerFactoryBean emfBuilder = getLocalContainerEntityManagerFactoryBean(schemaName);
+
         try {
             emfBuilder.afterPropertiesSet();
             if (emfBuilder.getObject() != null) {
@@ -73,42 +76,32 @@ public class TenantManagementService {
         }
     }
 
-    private LocalContainerEntityManagerFactoryBean buildEntityManagerFactory(String tenantDbUrl, String dbUsername, String rawPassword) {
-        DriverManagerDataSource freshTenantDataSource = new DriverManagerDataSource();
-        freshTenantDataSource.setDriverClassName(tenantProperties.getDriverClassName());
-        freshTenantDataSource.setUrl(tenantDbUrl);
-        freshTenantDataSource.setUsername(dbUsername);
-        freshTenantDataSource.setPassword(rawPassword);
-
+    private @NonNull LocalContainerEntityManagerFactoryBean getLocalContainerEntityManagerFactoryBean(String schemaName) {
         Map<String, Object> props = new HashMap<>();
         props.put("hibernate.hbm2ddl.auto", "update");
+        props.put("hibernate.default_schema", schemaName);
         props.put("hibernate.physical_naming_strategy", "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy");
 
         LocalContainerEntityManagerFactoryBean emfBuilder = new LocalContainerEntityManagerFactoryBean();
-        emfBuilder.setDataSource(freshTenantDataSource);
+        emfBuilder.setDataSource(masterDataSource);
         emfBuilder.setPackagesToScan("com.oc.api.model.tenant");
         emfBuilder.setPersistenceProvider(new org.hibernate.jpa.HibernatePersistenceProvider());
         emfBuilder.setJpaPropertyMap(props);
-
         return emfBuilder;
     }
 
-    private void persistTenantConfig(JdbcTemplate jdbcTemplate, String tenantId, String tenantName, String tenantDbUrl, String dbUsername, String rawPassword) throws Exception {
-        String driver = tenantProperties.getDriverClassName();
-        String encryptedPassword = encryptionService.encrypt(rawPassword);
-
+    private void persistTenantConfig(JdbcTemplate jdbcTemplate, String tenantId, String tenantName, String schemaName) {
         String insertSql = """
-                    INSERT INTO tenant_config (tenant_id, tenant_name, db_url, db_username, db_password, db_driver) 
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO tenant_config (tenant_id, tenant_name, schema_name, status, created_at) 
+                    VALUES (?, ?, ?, 'ACTIVE', NOW())
                 """;
 
-        jdbcTemplate.update(insertSql, tenantId, tenantName, tenantDbUrl, dbUsername, encryptedPassword, driver);
+        jdbcTemplate.update(insertSql, tenantId, tenantName, schemaName);
     }
 
-    private void rollbackTenantProvisioning(JdbcTemplate jdbcTemplate, String dbName, String dbUsername) {
+    private void rollbackTenantProvisioning(JdbcTemplate jdbcTemplate, String schemaName) {
         try {
-            jdbcTemplate.execute(String.format("DROP DATABASE IF EXISTS \"%s\" WITH (FORCE)", dbName));
-            jdbcTemplate.execute(String.format("DROP ROLE IF EXISTS \"%s\"", dbUsername));
+            jdbcTemplate.execute(String.format("DROP SCHEMA IF EXISTS \"%s\" CASCADE", schemaName));
         } catch (Exception cleanupEx) {
             // Suppress secondary cleanup exceptions
         }

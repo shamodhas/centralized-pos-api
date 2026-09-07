@@ -23,6 +23,10 @@ public class UserController {
             @RequestBody UserRegistrationRequest request,
             @RequestParam("tenantId") String targetTenantId) {
 
+        if (targetTenantId == null || targetTenantId.isBlank()) {
+            throw new IllegalArgumentException("Target tenant ID is required");
+        }
+        
         userService.registerUser(request, targetTenantId);
         return ResponseEntity.ok("User registered successfully to tenant: " + targetTenantId);
     }
