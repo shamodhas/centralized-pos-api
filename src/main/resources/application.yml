@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+app:
+  security:
+    encryption-secret: "58e8e118cf51fdd330a9def358d8dd76e70da5ff92f2a84b4c1322adda0718a7"
+
+spring:
+  main:
+    allow-circular-references: true
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  datasource:
+    master:
+      jdbc-url: jdbc:postgresql://localhost:5432/master_db
+      username: postgres
+      password: postgres
+      driver-class-name: org.postgresql.Driver
+      hikari:
+        maximum-pool-size: 10
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: none
