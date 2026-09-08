@@ -1,7 +1,7 @@
 package com.oc.api.context;
 
+import com.oc.api.config.tenant.TenantDataSourceManager;
 import com.oc.api.constant.AppConstants;
-import com.oc.api.config.TenantDataSourceManager;
 import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
 import javax.sql.DataSource;

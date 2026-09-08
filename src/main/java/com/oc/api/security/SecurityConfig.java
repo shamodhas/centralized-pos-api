@@ -1,5 +1,6 @@
 package com.oc.api.security;
 
+import com.oc.api.constant.AppConstants;
 import com.oc.api.exception.CustomAccessDeniedHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +35,7 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_URL).permitAll()
+                        .requestMatchers(AppConstants.PUBLIC_URLS).permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

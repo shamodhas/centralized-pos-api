@@ -1,4 +1,4 @@
-package com.oc.api.config;
+package com.oc.api.config.tenant;
 
 import com.oc.api.constant.AppConstants;
 import com.oc.api.context.DynamicRoutingDataSource;
@@ -40,21 +40,15 @@ public class TenantDataSourceManager {
             return masterDataSource;
         }
 
-        if (tenantDataSources.containsKey(tenantId)) {
-            return tenantDataSources.get(tenantId);
+        DataSource dataSource = tenantDataSources.get(tenantId);
+        if (dataSource != null) {
+            return dataSource;
         }
 
         ReentrantLock tenantLock = tenantLocks.computeIfAbsent(tenantId, k -> new ReentrantLock());
         tenantLock.lock();
         try {
-            if (tenantDataSources.containsKey(tenantId)) {
-                return tenantDataSources.get(tenantId);
-            }
-
-            DataSource schemaDataSource = createTenantSchemaDataSource(tenantId);
-            tenantDataSources.put(tenantId, schemaDataSource);
-            updateRoutingDataSourceTargets();
-            return schemaDataSource;
+            return tenantDataSources.computeIfAbsent(tenantId, this::createTenantSchemaDataSource);
         } finally {
             tenantLock.unlock();
         }
@@ -70,7 +64,7 @@ public class TenantDataSourceManager {
         TenantConfig config = getTenantConfig(tenantId);
         String schemaName = config.getSchemaName();
 
-        return new DelegatingDataSource(masterDataSource) {
+        DataSource schemaDataSource = new DelegatingDataSource(masterDataSource) {
             @Override
             public Connection getConnection() throws SQLException {
                 Connection connection = super.getConnection();
@@ -90,11 +84,14 @@ public class TenantDataSourceManager {
                     statement.execute("SET search_path TO \"" + schemaName + "\"");
                 } catch (SQLException e) {
                     connection.close();
-                    throw e.getMessage() != null ? new SQLException(e.getMessage()) : e;
+                    throw e;
                 }
                 return connection;
             }
         };
+
+        updateRoutingDataSourceTargets();
+        return schemaDataSource;
     }
 
     private synchronized void updateRoutingDataSourceTargets() {
@@ -107,14 +104,16 @@ public class TenantDataSourceManager {
 
     @CacheEvict(value = "tenantConfigs", key = "#tenantId")
     public void evictDataSource(String tenantId) {
-        ReentrantLock tenantLock = tenantLocks.computeIfAbsent(tenantId, k -> new ReentrantLock());
-        tenantLock.lock();
-        try {
-            tenantDataSources.remove(tenantId);
-            updateRoutingDataSourceTargets();
-        } finally {
-            tenantLock.unlock();
-            tenantLocks.remove(tenantId);
+        ReentrantLock tenantLock = tenantLocks.get(tenantId);
+        if (tenantLock != null) {
+            tenantLock.lock();
+            try {
+                tenantDataSources.remove(tenantId);
+                updateRoutingDataSourceTargets();
+            } finally {
+                tenantLock.unlock();
+                tenantLocks.remove(tenantId);
+            }
         }
     }
 }

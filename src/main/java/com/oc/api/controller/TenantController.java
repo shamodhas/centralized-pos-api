@@ -1,8 +1,8 @@
 package com.oc.api.controller;
 
 import com.oc.api.dto.TenantRegistrationRequest;
-import com.oc.api.config.TenantDataSourceManager;
-import com.oc.api.service.TenantManagementService;
+import com.oc.api.config.tenant.TenantDataSourceManager;
+import com.oc.api.service.TenantService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,7 +15,7 @@ import java.util.Map;
 public class TenantController {
 
     @Autowired
-    private TenantManagementService tenantManagementService;
+    private TenantService tenantManagementService;
 
     @Autowired
     private TenantDataSourceManager tenantDataSourceManager;

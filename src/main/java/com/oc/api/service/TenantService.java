@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class TenantManagementService {
+public class TenantService {
 
     @Qualifier(AppConstants.MASTER_DATASOURCE)
     private final DataSource masterDataSource;

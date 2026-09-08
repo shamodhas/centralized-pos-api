@@ -1,7 +1,7 @@
 package com.oc.api.controller;
 
 import com.oc.api.model.master.TenantConfig;
-import com.oc.api.service.TenantManagementService;
+import com.oc.api.service.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,7 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class GlobalAdminController {
 
-    private final TenantManagementService tenantManagementService;
+    private final TenantService tenantManagementService;
 
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")

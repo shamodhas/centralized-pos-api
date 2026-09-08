@@ -1,10 +1,10 @@
 package com.oc.api.config;
 
 import com.oc.api.constant.AppConstants;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -16,8 +16,8 @@ public class SuperAdminSeeder {
     @Bean
     CommandLineRunner seedSuperAdmin(
             @Qualifier(AppConstants.MASTER_DATASOURCE) DataSource masterDataSource,
-            PasswordEncoder passwordEncoder) {
-
+            PasswordEncoder passwordEncoder
+    ) {
         JdbcTemplate masterJdbcTemplate = new JdbcTemplate(masterDataSource);
 
         return args -> {

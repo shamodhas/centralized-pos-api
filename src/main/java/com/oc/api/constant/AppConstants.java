@@ -1,6 +1,7 @@
 package com.oc.api.constant;
 
 public final class AppConstants {
+
     private AppConstants() {
         throw new AssertionError("Cannot instantiate utility class");
     }
@@ -32,4 +33,8 @@ public final class AppConstants {
     public static final String TENANT_TX_MANAGER = "tenantTransactionManager";
     public static final String TENANT_TX_TEMPLATE = "tenantTransactionTemplate";
     public static final String TENANT_ENTITY_MANAGER = "tenantEntityManagerFactory";
+
+    public static final String[] PUBLIC_URLS = {
+            "/api/auth/**"
+    };
 }
