@@ -3,6 +3,7 @@ package com.oc.api.model.master;
 import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "tenant_user_mapping")
@@ -10,7 +11,7 @@ import lombok.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class TenantUserMapping extends BaseEntity {
 
     @Id

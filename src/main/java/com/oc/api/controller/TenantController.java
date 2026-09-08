@@ -1,7 +1,7 @@
 package com.oc.api.controller;
 
 import com.oc.api.dto.TenantRegistrationRequest;
-import com.oc.api.service.TenantDataSourceManager;
+import com.oc.api.config.TenantDataSourceManager;
 import com.oc.api.service.TenantManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

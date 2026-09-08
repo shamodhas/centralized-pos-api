@@ -2,8 +2,11 @@ package com.oc.api.model.tenant;
 
 import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
@@ -14,6 +17,9 @@ import java.util.List;
 @Table(name = "sales")
 @Getter
 @Setter
+@SuperBuilder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Sale extends BaseEntity {
 
     @Id

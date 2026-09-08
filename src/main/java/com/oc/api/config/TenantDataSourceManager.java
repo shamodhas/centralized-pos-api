@@ -1,4 +1,4 @@
-package com.oc.api.service;
+package com.oc.api.config;
 
 import com.oc.api.constant.AppConstants;
 import com.oc.api.context.DynamicRoutingDataSource;

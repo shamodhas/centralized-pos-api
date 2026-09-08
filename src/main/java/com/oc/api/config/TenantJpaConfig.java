@@ -2,7 +2,6 @@ package com.oc.api.config;
 
 import com.oc.api.constant.AppConstants;
 import com.oc.api.context.DynamicRoutingDataSource;
-import com.oc.api.service.TenantDataSourceManager;
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;

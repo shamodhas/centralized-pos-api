@@ -3,15 +3,17 @@ package com.oc.api.model.tenant;
 import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
+
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "users")
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@SuperBuilder
 public class User extends BaseEntity {
 
     @Id
