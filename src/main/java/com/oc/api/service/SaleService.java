@@ -20,7 +20,7 @@ public class SaleService {
 
     private final SaleRepository saleRepository;
     private final ProductRepository productRepository;
-    private final CustomerService customerService; // Customer service එකතු කරන ලදී
+    private final CustomerService customerService;
 
     @Transactional
     public Sale processCheckout(SaleRequest request, String customerPhone) {

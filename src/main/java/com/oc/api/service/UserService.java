@@ -4,13 +4,12 @@ import com.oc.api.constant.AppConstants;
 import com.oc.api.context.TenantContext;
 import com.oc.api.dto.AuthResponse;
 import com.oc.api.dto.UserRegistrationRequest;
-import com.oc.api.model.master.GlobalAdmin;
 import com.oc.api.model.master.TenantUserMapping;
 import com.oc.api.model.tenant.User;
 import com.oc.api.repository.master.GlobalAdminRepository;
 import com.oc.api.repository.master.TenantUserMappingRepository;
 import com.oc.api.repository.tenant.UserRepository;
-import com.oc.api.security.CustomUserDetails;
+import com.oc.api.security.UserPrincipal;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -88,7 +87,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public AuthResponse getCurrentUserProfile(CustomUserDetails userDetails) {
+    public AuthResponse getCurrentUserProfile(UserPrincipal userDetails) {
         Long userId = userDetails.getId();
         String tenantId = userDetails.getTenantId();
         String userType = userDetails.getUserType();

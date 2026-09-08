@@ -1,5 +1,6 @@
 package com.oc.api.model.tenant;
 
+import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @Table(name = "products")
 @Getter
 @Setter
-public class Product {
+public class Product extends BaseEntity  {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

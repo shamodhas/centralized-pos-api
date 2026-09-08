@@ -28,12 +28,11 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         String currentTenant = TenantContext.getCurrentTenant();
 
-        // Handle Global Admin vs Tenant User lookup based on context
         if (AppConstants.MASTER_TENANT_ID.equals(currentTenant) || currentTenant == null) {
             GlobalAdmin admin = globalAdminRepository.findByUsername(email).orElse(null);
             if (admin != null) {
                 List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(AppConstants.ROLE_PREFIX + admin.getRole()));
-                return new CustomUserDetails(
+                return new UserPrincipal(
                         admin.getId(),
                         admin.getUsername(),
                         null,
@@ -51,7 +50,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .map(r -> new SimpleGrantedAuthority(AppConstants.ROLE_PREFIX + r.name()))
                 .collect(Collectors.toList());
 
-        return new CustomUserDetails(
+        return new UserPrincipal(
                 user.getId(),
                 user.getEmail(),
                 null,

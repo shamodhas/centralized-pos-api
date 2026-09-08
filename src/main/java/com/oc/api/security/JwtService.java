@@ -1,38 +1,36 @@
 package com.oc.api.security;
 
+import com.oc.api.config.SecurityProperties;
 import com.oc.api.constant.AppConstants;
+import com.oc.api.exception.types.InvalidTokenException;
+import com.oc.api.exception.types.TokenExpiredException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
 @Service
+@EnableConfigurationProperties(SecurityProperties.class)
+@RequiredArgsConstructor
 public class JwtService {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
-
-    @Value("${jwt.refresh-secret}")
-    private String refreshSecretKey;
-
-    @Value("${jwt.expiration}")
-    private long expirationTime;
-
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpirationTime;
+    private final SecurityProperties properties;
 
     private Key getSignKey(boolean isRefresh) {
-        String key = isRefresh ? refreshSecretKey : secretKey;
-        return Keys.hmacShaKeyFor(key.getBytes());
+        String key = isRefresh ? properties.refreshSecret() : properties.secret();
+        return Keys.hmacShaKeyFor(key.getBytes(StandardCharsets.UTF_8));
     }
 
     public String extractUsername(String token) {
@@ -41,6 +39,19 @@ public class JwtService {
 
     public String extractUsernameFromRefresh(String token) {
         return extractClaim(token, Claims::getSubject, true);
+    }
+
+    public String extractTenantId(String token) {
+        return extractClaim(token, claims -> claims.get(AppConstants.CLAIM_TENANT_ID, String.class), false);
+    }
+
+    public String extractUserType(String token) {
+        return extractClaim(token, claims -> claims.get(AppConstants.CLAIM_USER_TYPE, String.class), false);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Map<String, String>> extractRoles(String token) {
+        return extractClaim(token, claims -> claims.get(AppConstants.CLAIM_ROLES, List.class), false);
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver, boolean isRefresh) {
@@ -53,14 +64,14 @@ public class JwtService {
         claims.put(AppConstants.CLAIM_ROLES, userDetails.getAuthorities());
         claims.put(AppConstants.CLAIM_TENANT_ID, tenantId);
         claims.put(AppConstants.CLAIM_USER_TYPE, userType);
-        return buildToken(claims, userDetails.getUsername(), expirationTime, false);
+        return buildToken(claims, userDetails.getUsername(), properties.expiration(), false);
     }
 
     public String generateRefreshToken(UserDetails userDetails, String tenantId, String userType) {
         Map<String, Object> claims = new HashMap<>();
         claims.put(AppConstants.CLAIM_TENANT_ID, tenantId);
         claims.put(AppConstants.CLAIM_USER_TYPE, userType);
-        return buildToken(claims, userDetails.getUsername(), refreshExpirationTime, true);
+        return buildToken(claims, userDetails.getUsername(), properties.refreshExpiration(), true);
     }
 
     private String buildToken(Map<String, Object> extraClaims, String subject, long expiration, boolean isRefresh) {
@@ -76,6 +87,16 @@ public class JwtService {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token, false);
+    }
+
+    public boolean isTokenValidWithoutUser(String token) {
+        try {
+            return !isTokenExpired(token, false);
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            throw new TokenExpiredException("JWT token has expired: " + e.getMessage());
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            throw new InvalidTokenException("Invalid JWT token: " + e.getMessage());
+        }
     }
 
     public boolean isRefreshTokenValid(String token, UserDetails userDetails) {

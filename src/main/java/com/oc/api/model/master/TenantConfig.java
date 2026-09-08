@@ -1,5 +1,6 @@
 package com.oc.api.model.master;
 
+import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 @Table(name = "tenant_config")
 @Getter
 @Setter
-public class TenantConfig implements Serializable {
+public class TenantConfig extends BaseEntity implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id

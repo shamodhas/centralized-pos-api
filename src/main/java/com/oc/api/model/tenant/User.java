@@ -1,5 +1,6 @@
 package com.oc.api.model.tenant;
 
+import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.HashSet;
@@ -11,7 +12,7 @@ import java.util.Set;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

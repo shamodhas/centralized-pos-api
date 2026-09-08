@@ -1,6 +1,7 @@
 package com.oc.api.model.tenant;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,7 +12,7 @@ import java.math.BigDecimal;
 @Table(name = "sale_items")
 @Getter
 @Setter
-public class SaleItem {
+public class SaleItem extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

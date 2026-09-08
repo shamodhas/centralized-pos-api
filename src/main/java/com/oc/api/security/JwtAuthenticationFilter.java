@@ -1,63 +1,80 @@
 package com.oc.api.security;
 
 import com.oc.api.constant.AppConstants;
-import com.oc.api.context.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws IOException, ServletException {
 
-        final String authHeader = request.getHeader(AppConstants.HEADER_AUTHORIZATION);
+        try {
+            final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        if (authHeader != null && authHeader.startsWith(AppConstants.TOKEN_PREFIX)) {
-            final String jwt = authHeader.substring(7);
-            final String email = jwtService.extractUsername(jwt);
+            if (authHeader != null && authHeader.startsWith(AppConstants.TOKEN_PREFIX)) {
+                final String jwt = authHeader.substring(7);
 
-            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (jwtService.isTokenValidWithoutUser(jwt)) {
+                    final String email = jwtService.extractUsername(jwt);
 
-                final String userType = jwtService.extractClaim(jwt, claims -> claims.get(AppConstants.CLAIM_USER_TYPE, String.class), false);
-                final String tokenTenantId = jwtService.extractClaim(jwt, claims -> claims.get(AppConstants.CLAIM_TENANT_ID, String.class), false);
+                    if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                        final String userType = jwtService.extractUserType(jwt);
+                        final String tokenTenantId = jwtService.extractTenantId(jwt);
 
-                if (AppConstants.USER_TYPE_GLOBAL.equals(userType)) {
-                    String overrideTenant = request.getHeader(AppConstants.HEADER_TENANT_ID);
-                    TenantContext.setCurrentTenant(overrideTenant != null ? overrideTenant : AppConstants.MASTER_TENANT_ID);
-                } else if (tokenTenantId != null) {
-                    TenantContext.setCurrentTenant(tokenTenantId);
-                }
+                        List<Map<String, String>> rawRoles = jwtService.extractRoles(jwt);
+                        List<SimpleGrantedAuthority> authorities = rawRoles == null ? List.of() :
+                                rawRoles.stream()
+                                        .map(r -> new SimpleGrantedAuthority(r.get("authority")))
+                                        .collect(Collectors.toList());
 
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(email);
+                        UserPrincipal principal = UserPrincipal.builder()
+                                .username(email)
+                                .tenantId(tokenTenantId)
+                                .userType(userType)
+                                .authorities(authorities)
+                                .build();
 
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities()
-                    );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                principal, null, principal.getAuthorities()
+                        );
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
             }
-        }
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 }

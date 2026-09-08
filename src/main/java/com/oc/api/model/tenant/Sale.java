@@ -1,5 +1,6 @@
 package com.oc.api.model.tenant;
 
+import com.oc.api.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,7 +14,7 @@ import java.util.List;
 @Table(name = "sales")
 @Getter
 @Setter
-public class Sale {
+public class Sale extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
